@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-shiori/dom"
 	"github.com/markusmobius/go-trafilatura"
 )
 
@@ -19,9 +20,10 @@ type scrapeRequest struct {
 }
 
 type scrapeResponse struct {
-	URL     string `json:"url"`
-	Title   string `json:"title,omitempty"`
-	Content string `json:"content"`
+	URL         string `json:"url"`
+	Title       string `json:"title,omitempty"`
+	Content     string `json:"content"`
+	ContentHTML string `json:"content_html,omitempty"`
 }
 
 type errorResponse struct {
@@ -87,9 +89,10 @@ func scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, scrapeResponse{
-		URL:     parsedURL.String(),
-		Title:   result.Metadata.Title,
-		Content: strings.TrimSpace(result.ContentText),
+		URL:         parsedURL.String(),
+		Title:       result.Metadata.Title,
+		Content:     strings.TrimSpace(result.ContentText),
+		ContentHTML: strings.TrimSpace(dom.OuterHTML(result.ContentNode)),
 	})
 }
 
@@ -113,7 +116,9 @@ func validateURL(raw string) (*nurl.URL, error) {
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(value); err != nil {
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
 		log.Printf("failed to write response: %v", err)
 	}
 }
